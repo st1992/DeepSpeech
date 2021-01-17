@@ -176,8 +176,9 @@ def ctc_beam_search_decoder(probs_seq,
     """
     beam_results = swigwrapper.ctc_beam_search_decoder(
         probs_seq, alphabet, beam_size, cutoff_prob, cutoff_top_n,
-        scorer, hot_words, num_results)
-    beam_results = [(res.confidence, alphabet.Decode(res.tokens)) for res in beam_results]
+        scorer, swigwrapper.Map(hot_words), num_results)
+    res = beam_results[0]
+    beam_results = (res.confidence, [ts for ts in res.timesteps], alphabet.Decode(res.tokens))
     return beam_results
 
 
