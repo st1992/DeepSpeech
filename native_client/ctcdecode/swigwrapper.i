@@ -12,6 +12,7 @@
 %include <std_vector.i>
 %include <std_shared_ptr.i>
 %include <std_unordered_map.i>
+%include <std_map.i>
 %include "numpy.i"
 
 %init %{
@@ -24,6 +25,7 @@ namespace std {
     %template(OutputVector) vector<Output>;
     %template(OutputVectorVector) vector<vector<Output>>;
     %template(Map) unordered_map<string, float>;
+    %template(HWMap) map<string, float>;
 }
 
 %shared_ptr(Scorer);
