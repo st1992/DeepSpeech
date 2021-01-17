@@ -174,7 +174,7 @@ def ctc_beam_search_decoder(probs_seq,
              results, in descending order of the confidence.
     :rtype: list
     """
-    hot_word_map = swigwrapper.Map({"monday", 2.5})
+    hot_word_map = swigwrapper.Map(("monday", 2.5))
     beam_results = swigwrapper.ctc_beam_search_decoder(
         probs_seq, alphabet, beam_size, cutoff_prob, cutoff_top_n,
         scorer, hot_word_map, num_results)
