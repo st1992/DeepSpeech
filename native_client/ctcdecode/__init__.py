@@ -175,6 +175,7 @@ def ctc_beam_search_decoder(probs_seq,
     :rtype: list
     """
     hot_word_map = swigwrapper.Map()
+    print(hot_word_map.asdict)
     beam_results = swigwrapper.ctc_beam_search_decoder(
         probs_seq, alphabet, beam_size, cutoff_prob, cutoff_top_n,
         scorer, hot_word_map, num_results)
