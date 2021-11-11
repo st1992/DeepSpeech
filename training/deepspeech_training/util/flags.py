@@ -24,6 +24,7 @@ def create_flags():
     f.DEFINE_integer('feature_win_len', 32, 'feature extraction audio window length in milliseconds')
     f.DEFINE_integer('feature_win_step', 20, 'feature extraction window step length in milliseconds')
     f.DEFINE_integer('audio_sample_rate', 16000, 'sample rate value expected by model')
+    f.DEFINE_boolean('normalize_sample_rate', True, 'normalize sample rate of all train_files to --audio_sample_rate')
 
     # Data Augmentation
     # ================
@@ -67,6 +68,8 @@ def create_flags():
     f.DEFINE_boolean('load_cudnn', False, 'Specifying this flag allows one to convert a CuDNN RNN checkpoint to a checkpoint capable of running on a CPU graph.')
     f.DEFINE_boolean('train_cudnn', False, 'use CuDNN RNN backend for training on GPU. Note that checkpoints created with this flag can only be used with CuDNN RNN, i.e. fine tuning on a CPU device will not work')
     f.DEFINE_boolean('automatic_mixed_precision', False, 'whether to allow automatic mixed precision training. USE OF THIS FLAG IS UNSUPPORTED. Checkpoints created with automatic mixed precision training will not be usable without mixed precision.')
+
+    f.DEFINE_boolean('horovod', False, 'use horovod for training on multiple gpus')
 
     # Sample limits
 

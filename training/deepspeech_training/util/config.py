@@ -12,7 +12,7 @@ from .flags import FLAGS
 from .gpu import get_available_gpus
 from .logging import log_error, log_warn
 from .helpers import parse_file_size
-from .augmentations import parse_augmentations
+from .augmentations import parse_augmentations, NormalizeSampleRate
 from .io import path_exists_remote
 
 class ConfigSingleton:
@@ -33,10 +33,13 @@ def initialize_globals():
 
     # Augmentations
     c.augmentations = parse_augmentations(FLAGS.augment)
-    if len(c.augmentations) > 0 and FLAGS.feature_cache and FLAGS.cache_for_epochs == 0:
+    if c.augmentations and FLAGS.feature_cache and FLAGS.cache_for_epochs == 0:
         log_warn('Due to current feature-cache settings the exact same sample augmentations of the first '
                  'epoch will be repeated on all following epochs. This could lead to unintended over-fitting. '
                  'You could use --cache_for_epochs <n_epochs> to invalidate the cache after a given number of epochs.')
+
+    if FLAGS.normalize_sample_rate:
+        c.augmentations = [NormalizeSampleRate(FLAGS.audio_sample_rate)] + c['augmentations']
 
     # Caching
     if FLAGS.cache_for_epochs == 1:
@@ -76,12 +79,33 @@ def initialize_globals():
     # CPU device
     c.cpu_device = '/cpu:0'
 
-    # Available GPU devices
-    c.available_devices = get_available_gpus(c.session_config)
+    if FLAGS.horovod:
+        try:
+            import horovod.tensorflow as hvd
+        except ImportError as e:
+            print(
+                "Error importing Horovod. Did you installed DeepSpeech with -DNOHOROVOD? "
+                "If you do not want to use horovod, use 'from deepspeech_training import train'")
+            raise e
 
-    # If there is no GPU available, we fall back to CPU based operation
-    if not c.available_devices:
-        c.available_devices = [c.cpu_device]
+        hvd.init()
+
+        # Pin GPU to be used to process local rank (one GPU per process)
+        c.session_config.gpu_options.visible_device_list = str(hvd.local_rank())
+        c.num_devices = hvd.size()
+        c.is_master_process = True if hvd.rank() == 0 else False
+    else:
+    # # Available GPU devices
+        c.available_devices = get_available_gpus(c.session_config)
+
+        # If there is no GPU available, we fall back to CPU based operation
+        if not c.available_devices:
+            c.available_devices = [c.cpu_device]
+
+        c.num_devices = len(c.available_devices)
+
+        # If there are no horovod processes the only one should handled like horovod master
+        c.is_master_process = True
 
     if FLAGS.bytes_output_mode:
         c.alphabet = UTF8Alphabet()

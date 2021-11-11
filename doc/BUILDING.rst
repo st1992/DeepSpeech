@@ -16,10 +16,12 @@ It is required to use our fork of TensorFlow since it includes fixes for common 
 
 If you'd like to build the language bindings or the decoder package, you'll also need:
 
+.. _swig-dep:
 
-* `SWIG >= 3.0.12 <http://www.swig.org/>`_.
-  Unfortunately, NodeJS / ElectronJS after 10.x support on SWIG is a bit behind, and while there are pending patches proposed to upstream, it is not yet merged.
+* `SWIG >= 4.0 <http://www.swig.org/>`_.
+  Unfortunately, NodeJS / ElectronJS after 10.x support on SWIG is a bit behind, but patches have been merged and 4.1 is good.
   The proper prebuilt patched version (covering linux, windows and macOS) of SWIG should get installed under `native_client/ <native_client/>`_ as soon as you build any bindings that requires it.
+  Prebuilt versions for linux, macOS and Windows are `available (look for ds-swig*.tar.gz) <https://github.com/mozilla/DeepSpeech/releases/tag/v0.9.3>`_
 
 * `node-pre-gyp <https://github.com/mapbox/node-pre-gyp>`_ (for Node.JS bindings only)
 
@@ -141,13 +143,42 @@ This will create the package ``deepspeech-VERSION.tgz`` in ``native_client/javas
 Install the CTC decoder package
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To build the ``ds_ctcdecoder`` package, you'll need the general requirements listed above (in particular SWIG). The command below builds the bindings using eight (8) processes for compilation. Adjust the parameter accordingly for more or less parallelism.
+To build the ``ds_ctcdecoder`` package, you'll need the general requirements listed above (in particular :ref:`SWIG <swig-dep>`). The command below builds the bindings using eight (8) processes for compilation. Adjust the parameter accordingly for more or less parallelism.
 
 .. code-block::
 
    cd native_client/ctcdecode
    make bindings NUM_PROCESSES=8
    pip install dist/*.whl
+
+
+Building CTC Decoder for training on unsupported platforms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We only support building CTC Decoder on x86-64 architecture.
+However, we offer some hints on building the CTC decoder on other
+architectures, and you might find some help in our `discourse <https://discourse.mozilla.org/>`.
+
+Feedback on improving this section or usage on other architectures is welcome.
+
+First, you need to build SWIG from scratch. See :ref:`SWIG dep <swig-dep>` for details.
+
+You can supply your prebuild SWIG using ``SWIG_DIST_URL``
+
+Moreover you may have to change ``PYTHON_PLATFORM_NAME`` corresponding to your platform.
+
+.. code-block::
+
+    # PowerPC (ppc64le)
+    PYTHON_PLATFORM_NAME="--plat-name linux_ppc64le"
+
+
+Complete build command:
+
+.. code-block::
+
+    SWIG_DIST_URL=[...] PYTHON_PLATFORM_NAME=[...] make bindings
+    pip install dist/*.whl
 
 Cross-building
 --------------

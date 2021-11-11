@@ -28,7 +28,7 @@ def audio_to_features(audio, sample_rate, transcript=None, clock=0.0, train_phas
                 lambda: tf.no_op(),
                 name='matching_sample_rate')
 
-    if train_phase and augmentations is not None:
+    if train_phase and augmentations:
         audio = apply_graph_augmentations('signal', audio, augmentations, transcript=transcript, clock=clock)
 
     spectrogram = contrib_audio.audio_spectrogram(audio,
@@ -36,7 +36,7 @@ def audio_to_features(audio, sample_rate, transcript=None, clock=0.0, train_phas
                                                   stride=Config.audio_step_samples,
                                                   magnitude_squared=True)
 
-    if train_phase and augmentations is not None:
+    if train_phase and augmentations:
         spectrogram = apply_graph_augmentations('spectrogram', spectrogram, augmentations, transcript=transcript, clock=clock)
 
     features = contrib_audio.mfcc(spectrogram=spectrogram,
@@ -45,7 +45,7 @@ def audio_to_features(audio, sample_rate, transcript=None, clock=0.0, train_phas
                                   upper_frequency_limit=FLAGS.audio_sample_rate / 2)
     features = tf.reshape(features, [-1, Config.n_input])
 
-    if train_phase and augmentations is not None:
+    if train_phase and augmentations:
         features = apply_graph_augmentations('features', features, augmentations, transcript=transcript, clock=clock)
 
     return features, tf.shape(input=features)[0]
@@ -94,7 +94,8 @@ def create_dataset(sources,
                    limit=0,
                    exception_box=None,
                    process_ahead=None,
-                   buffering=1 * MEGABYTE):
+                   buffering=1 * MEGABYTE,
+                   split_dataset=False):
     epoch_counter = Counter()  # survives restarts of the dataset and its generator
 
     def generate_values():
@@ -135,16 +136,24 @@ def create_dataset(sources,
 
     process_fn = partial(entry_to_features, train_phase=train_phase, augmentations=augmentations)
 
-    dataset = (tf.data.Dataset.from_generator(remember_exception(generate_values, exception_box),
-                                              output_types=(tf.string, tf.float32, tf.int32,
-                                                            (tf.int64, tf.int32, tf.int64), tf.float64))
-                              .map(process_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE))
+    dataset = tf.data.Dataset.from_generator(remember_exception(generate_values, exception_box),
+                                             output_types=(tf.string, tf.float32, tf.int32,
+                                                           (tf.int64, tf.int32, tf.int64), tf.float64))
+    if split_dataset:
+        # Using horovod Iterator.get_next() is not aware of different devices.
+        # A.shard(n, i) will contain all elements of A whose index mod n = i.
+        import horovod.tensorflow as hvd
+        dataset = dataset.shard(hvd.size(), hvd.rank())
+    dataset = dataset.map(process_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     if cache_path:
         dataset = dataset.cache(cache_path)
-    dataset = (dataset.window(batch_size, drop_remainder=train_phase).flat_map(batch_fn)
-                      .prefetch(len(Config.available_devices)))
+    dataset = (dataset.window(batch_size, drop_remainder=train_phase).flat_map(batch_fn))
+    if split_dataset:
+        #TODO is there a way to get a proper value?
+        dataset = dataset.prefetch(2)
+    else:
+        dataset = dataset.prefetch(Config.num_devices)
     return dataset
-
 
 def split_audio_file(audio_path,
                      audio_format=DEFAULT_FORMAT,
@@ -178,5 +187,5 @@ def split_audio_file(audio_path,
     ods = create_batch_set(outlier_batch_size,
                            lambda start, end, f, fl: end - start > int(outlier_duration_ms))
     dataset = nds.concatenate(ods)
-    dataset = dataset.prefetch(len(Config.available_devices))
+    dataset = dataset.prefetch(Config.num_devices)
     return dataset
